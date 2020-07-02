@@ -35,7 +35,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	blackfriday "github.com/russross/blackfriday/v2"
 	"html"
 	html_template "html/template"
 	"io"
@@ -54,9 +53,12 @@ import (
 	text_template "text/template"
 	"time"
 
+	blackfriday "github.com/russross/blackfriday/v2"
+
 	"net"
 
 	"encoding/base64"
+
 	web "github.com/dutchcoders/transfer.sh-web"
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
@@ -373,6 +375,8 @@ type Metadata struct {
 	MaxDate time.Time
 	// DeletionToken contains the token to match against for deletion
 	DeletionToken string
+	// URLs recevied through url Header
+	urls string
 }
 
 func MetadataForRequest(contentType string, r *http.Request) Metadata {
@@ -381,6 +385,7 @@ func MetadataForRequest(contentType string, r *http.Request) Metadata {
 		MaxDate:       time.Time{},
 		Downloads:     0,
 		MaxDownloads:  -1,
+		urls:          "",
 		DeletionToken: Encode(10000000+int64(rand.Intn(1000000000))) + Encode(10000000+int64(rand.Intn(1000000000))),
 	}
 
@@ -394,6 +399,11 @@ func MetadataForRequest(contentType string, r *http.Request) Metadata {
 	} else if v, err := strconv.Atoi(v); err != nil {
 	} else {
 		metadata.MaxDate = time.Now().Add(time.Hour * 24 * time.Duration(v))
+	}
+
+	if v := r.Header.Get("urls"); v == "" {
+	} else {
+		metadata.urls = v
 	}
 
 	return metadata
@@ -467,9 +477,14 @@ func (s *Server) putHandler(w http.ResponseWriter, r *http.Request) {
 		contentType = mime.TypeByExtension(filepath.Ext(vars["filename"]))
 	}
 
+	metadata := MetadataForRequest(contentType, r)
+
 	token := Encode(10000000 + int64(rand.Intn(1000000000)))
 
-	metadata := MetadataForRequest(contentType, r)
+	if v := r.Header.Get("urls"); v == "" {
+	} else {
+		token = "mail"
+	}
 
 	buffer := &bytes.Buffer{}
 	if err := json.NewEncoder(buffer).Encode(metadata); err != nil {
