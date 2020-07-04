@@ -376,7 +376,7 @@ type Metadata struct {
 	// DeletionToken contains the token to match against for deletion
 	DeletionToken string
 	// URLs recevied through url Header
-	urls string
+	Urls string
 }
 
 func MetadataForRequest(contentType string, r *http.Request) Metadata {
@@ -385,7 +385,7 @@ func MetadataForRequest(contentType string, r *http.Request) Metadata {
 		MaxDate:       time.Time{},
 		Downloads:     0,
 		MaxDownloads:  -1,
-		urls:          "",
+		Urls:          "",
 		DeletionToken: Encode(10000000+int64(rand.Intn(1000000000))) + Encode(10000000+int64(rand.Intn(1000000000))),
 	}
 
@@ -401,9 +401,9 @@ func MetadataForRequest(contentType string, r *http.Request) Metadata {
 		metadata.MaxDate = time.Now().Add(time.Hour * 24 * time.Duration(v))
 	}
 
-	if v := r.Header.Get("urls"); v == "" {
+	if v := r.Header.Get("Urls"); v == "" {
 	} else {
-		metadata.urls = v
+		metadata.Urls = v
 	}
 
 	return metadata
@@ -481,7 +481,7 @@ func (s *Server) putHandler(w http.ResponseWriter, r *http.Request) {
 
 	token := Encode(10000000 + int64(rand.Intn(1000000000)))
 
-	if v := r.Header.Get("urls"); v == "" {
+	if v := r.Header.Get("Urls"); v == "" {
 	} else {
 		token = "mail"
 	}
@@ -938,7 +938,7 @@ func (s *Server) headHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "close")
 	w.Header().Set("X-Remaining-Downloads", remainingDownloads)
 	w.Header().Set("X-Remaining-Days", remainingDays)
-	w.Header().Set("urls", metadata.urls)
+	w.Header().Set("Urls", metadata.Urls)
 }
 
 func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
@@ -985,7 +985,7 @@ func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Remaining-Downloads", remainingDownloads)
 	w.Header().Set("X-Remaining-Days", remainingDays)
-	w.Header().Set("urls", metadata.urls)
+	w.Header().Set("Urls", metadata.Urls)
 
 	if w.Header().Get("Range") == "" {
 		if _, err = io.Copy(w, reader); err != nil {
