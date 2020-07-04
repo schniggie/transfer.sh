@@ -938,6 +938,7 @@ func (s *Server) headHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Connection", "close")
 	w.Header().Set("X-Remaining-Downloads", remainingDownloads)
 	w.Header().Set("X-Remaining-Days", remainingDays)
+	w.Header().Set("urls", metadata.urls)
 }
 
 func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
