@@ -25,11 +25,11 @@ THE SOFTWARE.
 package server
 
 import (
+	crypto_rand "crypto/rand"
+	"encoding/binary"
 	"errors"
 	gorillaHandlers "github.com/gorilla/handlers"
 	"log"
-	crypto_rand "crypto/rand"
-	"encoding/binary"
 	"math/rand"
 	"mime"
 	"net/http"
@@ -175,9 +175,22 @@ func Logger(logger *log.Logger) OptionFn {
 	}
 }
 
+func MaxUploadSize(kbytes int64) OptionFn {
+	return func(srvr *Server) {
+		srvr.maxUploadSize = kbytes * 1024
+	}
+
+}
 func RateLimit(requests int) OptionFn {
 	return func(srvr *Server) {
 		srvr.rateLimitRequests = requests
+	}
+}
+
+func Purge(days, interval int) OptionFn {
+	return func(srvr *Server) {
+		srvr.purgeDays = time.Duration(days) * time.Hour * 24
+		srvr.purgeInterval = time.Duration(interval) * time.Hour
 	}
 }
 
@@ -271,7 +284,11 @@ type Server struct {
 
 	locks map[string]*sync.Mutex
 
+	maxUploadSize     int64
 	rateLimitRequests int
+
+	purgeDays     time.Duration
+	purgeInterval time.Duration
 
 	storage Storage
 
@@ -492,6 +509,10 @@ func (s *Server) Run() {
 	}
 
 	s.logger.Printf("---------------------------")
+
+	if s.purgeDays > 0 {
+		go s.purgeHandler()
+	}
 
 	term := make(chan os.Signal, 1)
 	signal.Notify(term, os.Interrupt)

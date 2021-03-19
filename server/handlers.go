@@ -313,6 +313,12 @@ func (s *Server) postHandler(w http.ResponseWriter, r *http.Request) {
 
 			contentLength := n
 
+			if s.maxUploadSize > 0 && contentLength > s.maxUploadSize {
+				log.Print("Entity too large")
+				http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+				return
+			}
+
 			metadata := MetadataForRequest(contentType, r)
 
 			buffer := &bytes.Buffer{}
@@ -381,7 +387,7 @@ type Metadata struct {
 
 func MetadataForRequest(contentType string, r *http.Request) Metadata {
 	metadata := Metadata{
-		ContentType:   contentType,
+		ContentType:   strings.ToLower(contentType),
 		MaxDate:       time.Time{},
 		Downloads:     0,
 		MaxDownloads:  -1,
@@ -463,6 +469,12 @@ func (s *Server) putHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		contentLength = n
+	}
+
+	if s.maxUploadSize > 0 && contentLength > s.maxUploadSize {
+		log.Print("Entity too large")
+		http.Error(w, http.StatusText(http.StatusRequestEntityTooLarge), http.StatusRequestEntityTooLarge)
+		return
 	}
 
 	if contentLength == 0 {
@@ -559,8 +571,22 @@ func resolveWebAddress(r *http.Request, proxyPath string, proxyPort string) stri
 	return webAddress
 }
 
+// Similar to the logic found here:
+// https://github.com/golang/go/blob/release-branch.go1.14/src/net/http/clone.go#L22-L33
+func cloneURL(u *url.URL) *url.URL {
+	c := &url.URL{}
+	*c = *u
+
+	if u.User != nil {
+		c.User = &url.Userinfo{}
+		*c.User = *u.User
+	}
+
+	return c
+}
+
 func getURL(r *http.Request, proxyPort string) *url.URL {
-	u, _ := url.Parse(r.URL.String())
+	u := cloneURL(r.URL)
 
 	if r.TLS != nil {
 		u.Scheme = "https"
@@ -691,6 +717,19 @@ func (s *Server) CheckDeletionToken(deletionToken, token, filename string) error
 	}
 
 	return nil
+}
+
+func (s *Server) purgeHandler() {
+	ticker := time.NewTicker(s.purgeInterval)
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				err := s.storage.Purge(s.purgeDays)
+				log.Printf("error cleaning up expired files: %v", err)
+			}
+		}
+	}()
 }
 
 func (s *Server) deleteHandler(w http.ResponseWriter, r *http.Request) {
@@ -986,6 +1025,11 @@ func (s *Server) getHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Remaining-Downloads", remainingDownloads)
 	w.Header().Set("X-Remaining-Days", remainingDays)
 	w.Header().Set("Urls", metadata.Urls)
+
+
+	if disposition == "inline" && strings.Contains(contentType, "html") {
+		reader = ioutil.NopCloser(bluemonday.UGCPolicy().SanitizeReader(reader))
+	}
 
 	if w.Header().Get("Range") == "" {
 		if _, err = io.Copy(w, reader); err != nil {

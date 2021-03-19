@@ -9,6 +9,9 @@ services:
 
 go:
   - 1.13.x
+  - 1.14.x
+  - 1.15.x
+  - 1.16.x
   - tip
 
 env:
@@ -23,24 +26,12 @@ install:
 script:
   - go test ./...
 
-jobs:
-  include:
-    - stage: Fuzz regression
-      go: 1.13.x
-      dist: bionic
-      script: ./fuzzit.sh local-regression
-    - stage: Fuzz
-      if: branch = master AND type IN (push)
-      go: 1.13.x
-      dist: bionic
-      script: ./fuzzit.sh fuzzing
-
 before_deploy:
   - mkdir -p release
-  - "GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags -a -tags netgo -ldflags '-s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-linux-amd64"
-  - "GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -ldflags -a -tags netgo -ldflags '-s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-linux-armv7"
-  - "GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags -a -tags netgo -ldflags '-s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-darwin-amd64"
-  - "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags -a -tags netgo -ldflags '-s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-win-amd64.exe"
+  - "GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -tags netgo -ldflags '-a -s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-linux-amd64"
+  - "GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build -tags netgo -ldflags '-a -s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-linux-armv7"
+  - "GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -tags netgo -ldflags '-a -s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-darwin-amd64"
+  - "GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -tags netgo -ldflags '-a -s -w -extldflags -static' -o release/transfersh-$TRAVIS_TAG-win-amd64.exe"
 
 deploy:
   provider: releases
@@ -54,5 +45,5 @@ deploy:
   skip_cleanup: true
   on:
     tags: true
-    go: 1.13.x
+    go: 1.15.x
   overwrite: true
